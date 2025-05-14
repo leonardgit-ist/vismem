@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Visual Memory Test</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: white;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    #controls {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    #grid {
+      display: grid;
+      gap: 5px;
+      width: 80vw;
+      max-width: 480px;
+      height: auto;
+      aspect-ratio: 1;
+    }
+    .cell {
+      background: #333;
+      border-radius: 4px;
+    }
+    .cell.highlight { background: #0f0; }
+    .cell.selected { background: #55f; }
+    .cell.wrong { background: #f00; }
+    input, button {
+      background: #222;
+      border: 1px solid #555;
+      color: white;
+      padding: 5px 10px;
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <h1>Visual Memory Test</h1>
+    <p>
+      Level: <span id="levelDisplay">1</span> |
+      Lives: <span id="livesDisplay">3</span>
+    </p>
+    <label>Start Level: <input type="number" id="levelInput" min="1" value="1"></label>
+    <label>Max Grid Size: <input type="number" id="gridCapInput" min="3" value="10"></label>
+    <button onclick="startGame()">Start</button>
+  </div>
+  <div id="grid"></div>
+  <audio id="clickSound" src="https://www.soundjay.com/button/beep-07.wav"></audio>
+
+  <script>
+    const grid = document.getElementById("grid");
+    const levelDisplay = document.getElementById("levelDisplay");
+    const livesDisplay = document.getElementById("livesDisplay");
+    const levelInput = document.getElementById("levelInput");
+    const gridCapInput = document.getElementById("gridCapInput");
+
+    let level = 1;
+    let lives = 3;
+    let gridCap = 10;
+    let size = 3;
+    let highlightCount = 3;
+    let cells = [];
+    let highlighted = new Set();
+    let selected = new Set();
+    let clickable = false;
+    let misclicks = 0;
+
+    function getGridSize(level) {
+      if (level <= 2) return 3;
+      if (level <= 5) return 4;
+      if (level <= 8) return 5;
+      return 6 + Math.floor((level - 9) / 5);
+    }
+
+    function startGame() {
+      level = Math.max(1, parseInt(levelInput.value));
+      gridCap = Math.max(3, parseInt(gridCapInput.value));
+      lives = 3;
+      levelDisplay.textContent = level;
+      livesDisplay.textContent = lives;
+      generateGrid();
+    }
+
+    function generateGrid() {
+      grid.innerHTML = "";
+      size = Math.min(getGridSize(level), gridCap);
+      grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+      grid.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+      cells = [];
+      highlighted.clear();
+      selected.clear();
+      clickable = false;
+      misclicks = 0;
+
+      const total = size * size;
+      for (let i = 0; i < total; i++) {
+        const cell = document.createElement("div");
+        cell.classList.add("cell");
+        cell.dataset.index = i;
+        cell.addEventListener("click", onCellClick);
+        grid.appendChild(cell);
+        cells.push(cell);
+      }
+
+      highlightCount = level + 2;
+      const indices = [...Array(total).keys()];
+      for (let i = 0; i < highlightCount; i++) {
+        const rand = indices.splice(Math.floor(Math.random() * indices.length), 1)[0];
+        highlighted.add(rand);
+      }
+
+      showHighlights();
+    }
+
+    function showHighlights() {
+      highlighted.forEach(i => cells[i].classList.add("highlight"));
+      setTimeout(() => {
+        highlighted.forEach(i => cells[i].classList.remove("highlight"));
+        clickable = true;
+      }, 1300);
+    }
+
+    function onCellClick(e) {
+      if (!clickable) return;
+      document.getElementById("clickSound").play();
+      const i = +e.target.dataset.index;
+      if (selected.has(i)) return;
+
+      selected.add(i);
+      if (highlighted.has(i)) {
+        e.target.classList.add("selected");
+      } else {
+        e.target.classList.add("wrong");
+        misclicks++;
+        if (misclicks >= 3) {
+          lives--;
+          livesDisplay.textContent = lives;
+          if (lives <= 0) {
+            clickable = false;
+            setTimeout(() => {
+              alert("Game over. Final level: " + level);
+              startGame();
+            }, 300);
+            return;
+          }
+          clickable = false;
+          setTimeout(() => generateGrid(), 800);
+          return;
+        }
+      }
+
+      if (selected.size >= highlighted.size && isCorrect()) {
+        clickable = false;
+        level++;
+        levelDisplay.textContent = level;
+        setTimeout(() => generateGrid(), 800);
+      }
+    }
+
+    function isCorrect() {
+      for (let i of highlighted) {
+        if (!selected.has(i)) return false;
+      }
+      return true;
+    }
+  </script>
+</body>
+</html>
